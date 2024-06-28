@@ -1,0 +1,10 @@
+{
+    "main": {
+        "folder": "qmk_firmware",
+        "url": "https://github.com/qmk/qmk_firmware.git"
+    },
+    "steno": {
+        "folder": "qmk_steno",
+        "url": "https://github.com/openstenoproject/qmk.git"
+    }
+}
