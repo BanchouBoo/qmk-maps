@@ -13,3 +13,5 @@ Dvorak default layout with a qwerty layer, a modified qwerty layer with spacebar
 [Link](https://ploopy.co/classic-trackball)
 
 Swapped buttons around and wrote some kinda janky code for mouse acceleration but I'm happy with how it feels. Also using 2000 DPI but then using math to get an effective DPI of 400, allegedly 2000 DPI is the highest the sensor can go before smoothing starts getting applied and a higher DPI scaled down theoretically means a greater degree of accuracy in movement. In practice I haven't conciously noticed a difference, but it's certainly not hurting anything so I chose to keep it.
+
+Eventually I'd like to rework the acceleration code.
