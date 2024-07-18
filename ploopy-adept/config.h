@@ -1,0 +1,15 @@
+#pragma once
+
+// 2000 max dpi before smoothing is applied
+#define PLOOPY_DPI_OPTIONS { 2000 }
+#define PLOOPY_DPI_DEFAULT 0
+
+// TODO: look into pointing modes for drag scroll (and maybe accel??)
+// #define PLOOPY_DRAGSCROLL_DPI 100
+#define PLOOPY_DRAGSCROLL_DIVISOR 64.0
+#define PLOOPY_DRAGSCROLL_DIVISOR_H PLOOPY_DRAGSCROLL_DIVISOR
+#define PLOOPY_DRAGSCROLL_DIVISOR_V PLOOPY_DRAGSCROLL_DIVISOR
+#define PLOOPY_DRAGSCROLL_MOMENTARY
+#define PLOOPY_DRAGSCROLL_INVERT
+
+#define MOUSE_EXTENDED_REPORT
