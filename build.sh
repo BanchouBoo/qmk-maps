@@ -32,22 +32,26 @@ keymap=${map_dir}/$1
 [ -f "${keymap}/vars" ] || die "Keymap missing vars file!"
 . "${keymap}/vars"
 [ "$KEYBOARD" ] || die "Keymap vars must include keyboard (KEYBOARD)!"
-[ "$REV" ] || die "Keymap vars must include revision (REV)!"
 : ${REPO:=main}
 
 repo_folder=$(jq -r ".${REPO}.folder" "$repo_file")
 repo_folder=${git_dir}/${repo_folder}
 repo_url=$(jq -r ".${REPO}.url" "$repo_file")
+repo_checkout=$(jq -r ".${REPO}.checkout" "$repo_file")
+if [ "$repo_checkout" = "null" ]; then
+    repo_checkout=""
+fi
 
 info "Pulling git repository"
 if [ ! -d "$repo_folder" ]; then
     git clone --recurse-submodules "$repo_url" "$repo_folder"
-else
-    cd "$repo_folder"
-    git pull
 fi
 
 cd "$repo_folder"
+git pull
+if [ "$repo_checkout" ]; then
+    git checkout "$repo_checkout"
+fi
 
 keymap_symlink="${repo_folder}/keyboards/${KEYBOARD}/keymaps/QMK-MAP-LINK"
 # ensure there isn't a leftover symlink from previous runs, it shouldn't but just to be sure
@@ -55,4 +59,10 @@ keymap_symlink="${repo_folder}/keyboards/${KEYBOARD}/keymaps/QMK-MAP-LINK"
 ln -s "$keymap" "$keymap_symlink"
 trap 'rm "$keymap_symlink"; trap - EXIT' EXIT INT HUP TERM
 
-make "${KEYBOARD}/${REV}:QMK-MAP-LINK:flash"
+base="$KEYBOARD"
+if [ "$REV" ]; then
+    base="${base}/${REV}"
+fi
+
+export KEYMAP_DIR=$keymap
+make BUILD_DIR="$map_dir/build" "${base}:QMK-MAP-LINK"
