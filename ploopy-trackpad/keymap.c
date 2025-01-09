@@ -220,14 +220,9 @@ digitizer_t digitizer_task_user(digitizer_t state) {
 
                 data.tablet.shiftable = true;
 
-                data.tablet.region[0] = WIDTH * 0.3;
-                data.tablet.region[1] = HEIGHT * 0.3;
+                data.tablet.region[0] = WIDTH * 0.367;
+                data.tablet.region[1] = HEIGHT * 0.386;
 
-                data.tablet.deadzone_x[0] = 1800;
-                data.tablet.deadzone_x[1] = 1900;
-
-                data.tablet.deadzone_y[0] = 1800;
-                data.tablet.deadzone_y[1] = 1400;
 
                 change_mode(MODE_TABLET, data);
             #else
