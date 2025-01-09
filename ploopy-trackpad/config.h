@@ -1,5 +1,6 @@
 #define MAXTOUCH_BOOTLOADER_GESTURE
 #define MOUSE_EXTENDED_REPORT
+#define MXT_ENABLE_STYLUS 0
 #define DIGITIZER_HAS_STYLUS true
 
 // for printing floats
