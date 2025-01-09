@@ -80,6 +80,8 @@ typedef union {
 
         // ---INTERNAL DATA---
         uint8_t pointer_index;
+        uint8_t button_index[4];
+        uint8_t buttons;
         uint16_t min[2];
         uint16_t max[2];
     } tablet;
@@ -89,13 +91,11 @@ const mode_data_t mode_tablet_default = { .tablet = { .mode = MODE_RECTANGLE,
                                                       .region = { WIDTH, HEIGHT }, 
                                                       .shiftable = false,
                                                       .pointer_index = INVALID_INDEX,
+                                                      .button_index = { INVALID_INDEX, INVALID_INDEX, INVALID_INDEX, INVALID_INDEX },
                                                       .deadzone_x = { 0, 0 },
                                                       .deadzone_y = { 0, 0 } } };
 const mode_data_t mode_mouse_default = { .mouse = { .pointer_index = INVALID_INDEX,
-                                                    .button_index[0] = INVALID_INDEX,
-                                                    .button_index[1] = INVALID_INDEX,
-                                                    .button_index[2] = INVALID_INDEX,
-                                                    .button_index[3] = INVALID_INDEX,
+                                                    .button_index = { INVALID_INDEX, INVALID_INDEX, INVALID_INDEX, INVALID_INDEX },
                                                     .sensitivity = 0.115 } };
 
 mode_t mode = MODE_NORMAL;
@@ -145,9 +145,9 @@ bool valid_index(uint8_t index) {
     return index < INVALID_INDEX;
 }
 
-bool button_index_taken(mode_data_t data, uint8_t index) {
+bool button_index_taken(uint8_t button_index[4], uint8_t index) {
     for (uint8_t i = 0; i < 4; i++) {
-        const uint8_t check = mode_data.mouse.button_index[i];
+        const uint8_t check = button_index[i];
         if (valid_index(index) && index == check) return true;
     }
     return false;
@@ -179,6 +179,7 @@ float accel_classic(float x, float offset, float acceleration, float exponent) {
 }
 
 report_mouse_t pointing_device_task_user(report_mouse_t report) {
+    // TODO: better unify these to avoid the duplicate code, maybe make mouse buttons a global instead of mode-specific
     if (mode == MODE_MOUSE) {
         // buttons get reset every report, so we have to store them to set them every time
         report.buttons = mode_data.mouse.buttons;
@@ -187,6 +188,8 @@ report_mouse_t pointing_device_task_user(report_mouse_t report) {
             // TODO: do inertia stuff here
             //       maybe make inertia a separate mode
         }
+    } else if (mode == MODE_TABLET) {
+        report.buttons = mode_data.tablet.buttons;
     }
     return report;
 }
@@ -236,6 +239,7 @@ digitizer_t digitizer_task_user(digitizer_t state) {
     }
 
     switch (mode) {
+        // TODO: add a way to scroll
         case MODE_MOUSE: {
             if (valid_index(mode_data.mouse.pointer_index)) {
                 if (!state.contacts[mode_data.mouse.pointer_index].tip) {
@@ -244,7 +248,7 @@ digitizer_t digitizer_task_user(digitizer_t state) {
             }
             if (last_contact_count == 0 || !valid_index(mode_data.mouse.pointer_index)) {
                 FOR_ACTIVE_CONTACTS(state, {
-                    if (button_index_taken(mode_data, i)) {
+                    if (button_index_taken(mode_data.mouse.button_index, i)) {
                         continue;
                     }
                     mode_data.mouse.pointer_index = i;
@@ -279,21 +283,21 @@ digitizer_t digitizer_task_user(digitizer_t state) {
                         float distance = vec2_length(vec2_sub(pointer_position, vec2(contact->x, contact->y)));
                         if (contact->x < pointer_contact->x) {
                             if ((distance < 4000.0 || valid_index(mode_data.mouse.button_index[FINGER_THUMB])) && !valid_index(mode_data.mouse.button_index[FINGER_INDEX])) {
-                                if (!button_index_taken(mode_data, i)) {
+                                if (!button_index_taken(mode_data.mouse.button_index, i)) {
                                     mode_data.mouse.button_index[FINGER_INDEX] = i;
                                 }
                             } else if (!valid_index(mode_data.mouse.button_index[FINGER_THUMB])) {
-                                if (!button_index_taken(mode_data, i)) {
+                                if (!button_index_taken(mode_data.mouse.button_index, i)) {
                                     mode_data.mouse.button_index[FINGER_THUMB] = i;
                                 }
                             }
                         } else if (contact->x > pointer_contact->x) {
                             if ((distance < 4000.0 || valid_index(mode_data.mouse.button_index[FINGER_PINKY])) && !valid_index(mode_data.mouse.button_index[FINGER_RING])) {
-                                if (!button_index_taken(mode_data, i)) {
+                                if (!button_index_taken(mode_data.mouse.button_index, i)) {
                                     mode_data.mouse.button_index[FINGER_RING] = i;
                                 }
                             } else if (!valid_index(mode_data.mouse.button_index[FINGER_PINKY])) {
-                                if (!button_index_taken(mode_data, i)) {
+                                if (!button_index_taken(mode_data.mouse.button_index, i)) {
                                     mode_data.mouse.button_index[FINGER_PINKY] = i;
                                 }
                             }
@@ -336,21 +340,19 @@ digitizer_t digitizer_task_user(digitizer_t state) {
             }
             if (last_contact_count == 0 || !valid_index(mode_data.tablet.pointer_index)) {
                 FOR_ACTIVE_CONTACTS(state, {
+                    if (button_index_taken(mode_data.tablet.button_index, i)) {
+                        continue;
+                    }
                     mode_data.tablet.pointer_index = i;
                     break;
                 });
             }
 
-            // disable other touches
-            // TODO: maybe use them like buttons in mouse mode later
-            FOR_ACTIVE_CONTACTS(state, {
-                if (i != mode_data.tablet.pointer_index) {
-                    contact->tip = false;
-                }
-            });
 
             if (valid_index(mode_data.tablet.pointer_index)) {
                 digitizer_contact_t *pointer_contact = &state.contacts[mode_data.tablet.pointer_index];
+
+                uint16_t x_original = pointer_contact->x;
 
                 pointer_contact->type = STYLUS;
                 pointer_contact->tip = false;
@@ -408,6 +410,31 @@ digitizer_t digitizer_task_user(digitizer_t state) {
                     } break;
                     default: uprintf("Tablet mode %d not implemented\n", mode_data.tablet.mode); break;
                 }
+
+                FOR_ACTIVE_CONTACTS(state, {
+                    if (contact != pointer_contact) {
+                        if (contact->x < x_original) {
+                            mode_data.tablet.button_index[0] = i;
+                        } else if (contact->x > x_original) {
+                            mode_data.tablet.button_index[1] = i;
+                        }
+                    }
+                });
+
+                mode_data.tablet.buttons = 0;
+                for (uint8_t i = 0; i < 4; i++) {
+                    const uint8_t index = mode_data.tablet.button_index[i];
+                    if (!valid_index(index)) continue;
+                    if (state.contacts[index].tip) {
+                        mode_data.tablet.buttons |= (1 << i);
+                    } else {
+                        mode_data.tablet.button_index[i] = INVALID_INDEX;
+                    }
+                }
+
+                FOR_CONTACTS(state, {
+                    contact->tip = false;
+                });
             }
         } break;
         default: break;
