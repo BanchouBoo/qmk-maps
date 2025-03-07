@@ -31,7 +31,7 @@ keymap=${map_dir}/$1
 
 [ -f "${keymap}/vars" ] || die "Keymap missing vars file!"
 . "${keymap}/vars"
-[ "$KEYBOARD" ] || die "Keymap vars must include keyboard (KEYBOARD)!"
+[ "$KEYBOARD" ] || die "Keymap vars must include KEYBOARD!"
 : ${REPO:=main}
 
 repo_folder=$(jq -r ".${REPO}.folder" "$repo_file")
