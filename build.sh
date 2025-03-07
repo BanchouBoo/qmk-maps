@@ -11,7 +11,7 @@ info() {
     printf "[ \033[00;34m...\033[0m ] %s\n" "$1"
 }
 
-git_dir="${HOME}/opt/git"
+GIT_DIR="${GIT_DIR:-${HOME}/git}"
 map_dir=$(realpath "$0")
 map_dir=${map_dir%/*}
 repo_file="${map_dir}/repos.json"
@@ -35,7 +35,7 @@ keymap=${map_dir}/$1
 : ${REPO:=main}
 
 repo_folder=$(jq -r ".${REPO}.folder" "$repo_file")
-repo_folder=${git_dir}/${repo_folder}
+repo_folder=${GIT_DIR}/${repo_folder}
 repo_url=$(jq -r ".${REPO}.url" "$repo_file")
 repo_checkout=$(jq -r ".${REPO}.checkout" "$repo_file")
 if [ "$repo_checkout" = "null" ]; then
