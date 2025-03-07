@@ -52,6 +52,7 @@ git pull
 if [ "$repo_checkout" ]; then
     git checkout "$repo_checkout"
 fi
+git submodule update --init --recursive
 
 keymap_symlink="${repo_folder}/keyboards/${KEYBOARD}/keymaps/QMK-MAP-LINK"
 # ensure there isn't a leftover symlink from previous runs, it shouldn't but just to be sure
