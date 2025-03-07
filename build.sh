@@ -66,4 +66,4 @@ if [ "$REV" ]; then
 fi
 
 export KEYMAP_DIR=$keymap
-make BUILD_DIR="$map_dir/build" "${base}:QMK-MAP-LINK"
+make "${base}:QMK-MAP-LINK:flash"
