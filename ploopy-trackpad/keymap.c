@@ -30,7 +30,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {{{ KC_NO }}};
 // (void)contact to suppress unused variable warnings
 #define FOR_CONTACTS(state, ...) \
     for (uint8_t i = 0; i < DIGITIZER_CONTACT_COUNT; i++) { \
-        digitizer_contact_t *contact = &state.contacts[i]; \
+        digitizer_contact_t *contact = &(state->contacts[i]); \
         (void)contact; \
         do __VA_ARGS__ while (0); \
     }
@@ -118,7 +118,7 @@ void change_mode(mode_t new_mode, mode_data_t data) {
     };
 }
 
-uint8_t get_contact_count(digitizer_t state) {
+uint8_t get_contact_count(digitizer_t *state) {
     uint8_t contact_count = 0;
     FOR_ACTIVE_CONTACTS(state, {
         contact_count += 1;
@@ -126,7 +126,7 @@ uint8_t get_contact_count(digitizer_t state) {
     return contact_count;
 }
 
-vec2_t get_average_position(digitizer_t state) {
+vec2_t get_average_position(digitizer_t *state) {
     uint8_t count = 0;
     vec2_t result = vec2_zero;
     FOR_ACTIVE_CONTACTS(state, {
@@ -194,14 +194,14 @@ report_mouse_t pointing_device_task_user(report_mouse_t report) {
     return report;
 }
 
-digitizer_t digitizer_task_user(digitizer_t state) {
+bool digitizer_task_user(digitizer_t *state) {
     uint8_t contact_count = get_contact_count(state);
 
     // bottom left corner keyboard reset if 5-finger gesture is disabled
     // temporary while I mess with stuff and figure out what I want
     #ifndef MAXTOUCH_BOOTLOADER_GESTURE
         if (contact_count == 1) {
-            digitizer_contact_t contact = state.contacts[0];
+            digitizer_contact_t contact = state->contacts[0];
             if (contact.x < 10 && contact.y > 9800) {
                 reset_keyboard();
             }
@@ -237,7 +237,7 @@ digitizer_t digitizer_task_user(digitizer_t state) {
         // TODO: add a way to scroll
         case MODE_MOUSE: {
             if (valid_index(mode_data.mouse.pointer_index)) {
-                if (!state.contacts[mode_data.mouse.pointer_index].tip) {
+                if (!state->contacts[mode_data.mouse.pointer_index].tip) {
                     mode_data.mouse.pointer_index = INVALID_INDEX;
                 }
             }
@@ -254,7 +254,7 @@ digitizer_t digitizer_task_user(digitizer_t state) {
 
             vec2_t move_delta = vec2_zero;
             if (valid_index(mode_data.mouse.pointer_index)) {
-                digitizer_contact_t *pointer_contact = &state.contacts[mode_data.mouse.pointer_index];
+                digitizer_contact_t *pointer_contact = &(state->contacts[mode_data.mouse.pointer_index]);
 
                 vec2_t last_pointer_position = mode_data.mouse.pointer_position;
                 vec2_t pointer_position = vec2(pointer_contact->x, pointer_contact->y);
@@ -305,7 +305,7 @@ digitizer_t digitizer_task_user(digitizer_t state) {
             for (uint8_t i = 0; i < 4; i++) {
                 const uint8_t index = mode_data.mouse.button_index[i];
                 if (!valid_index(index)) continue;
-                if (state.contacts[index].tip) {
+                if (state->contacts[index].tip) {
                     mode_data.mouse.buttons |= (1 << i);
                 } else {
                     mode_data.mouse.button_index[i] = INVALID_INDEX;
@@ -329,7 +329,7 @@ digitizer_t digitizer_task_user(digitizer_t state) {
         } break;
         case MODE_TABLET: {
             if (valid_index(mode_data.tablet.pointer_index)) {
-                if (!state.contacts[mode_data.tablet.pointer_index].tip) {
+                if (!state->contacts[mode_data.tablet.pointer_index].tip) {
                     mode_data.tablet.pointer_index = INVALID_INDEX;
                 }
             }
@@ -345,7 +345,7 @@ digitizer_t digitizer_task_user(digitizer_t state) {
 
 
             if (valid_index(mode_data.tablet.pointer_index)) {
-                digitizer_contact_t *pointer_contact = &state.contacts[mode_data.tablet.pointer_index];
+                digitizer_contact_t *pointer_contact = &(state->contacts[mode_data.tablet.pointer_index]);
 
                 uint16_t x_original = pointer_contact->x;
 
@@ -420,7 +420,7 @@ digitizer_t digitizer_task_user(digitizer_t state) {
                 for (uint8_t i = 0; i < 4; i++) {
                     const uint8_t index = mode_data.tablet.button_index[i];
                     if (!valid_index(index)) continue;
-                    if (state.contacts[index].tip) {
+                    if (state->contacts[index].tip) {
                         mode_data.tablet.buttons |= (1 << i);
                     } else {
                         mode_data.tablet.button_index[i] = INVALID_INDEX;
@@ -436,7 +436,7 @@ digitizer_t digitizer_task_user(digitizer_t state) {
     }
 
     last_contact_count = contact_count;
-    return state;
+    return true;
 }
 
 void keyboard_post_init_user(void) {
