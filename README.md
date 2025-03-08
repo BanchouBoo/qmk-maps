@@ -26,7 +26,7 @@ You can switch modes by pressing down a specific number of fingers:
 - 6: Normal mode
 - 7: Mouse mode
 - 8: Tablet mode (if `DIGITIZER_HAS_STYLUS` is defined)
-- 10: Puts the trackpad into the bootloader
+- 10: Puts the trackpad into the bootloader (if `MAXTOUCH_BOOTLOADER_GESTURE` is NOT defined)
 
 - Normal: Standard out-of-the-box trackpad behavior, nothing special.
 - Mouse: Emulates mouse input, first contact acts as the pointer, a contact to the left <4000 trackpad units is a left click, a contact to the left >=4000 trackpad units is a mouse side button, a contact to the right <4000 trackpad units is a right click, a contact >=4000 units to the right is a middle click. Currently also has some hardcoded acceleration.
