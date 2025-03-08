@@ -197,6 +197,9 @@ report_mouse_t pointing_device_task_user(report_mouse_t report) {
 bool digitizer_task_user(digitizer_t *state) {
     uint8_t contact_count = get_contact_count(state);
 
+    //if (contact_count != last_contact_count)
+    //    uprintf("Contact count: %d / %d\n", contact_count, DIGITIZER_CONTACT_COUNT);
+
     // bottom left corner keyboard reset if 5-finger gesture is disabled
     // temporary while I mess with stuff and figure out what I want
     #ifndef MAXTOUCH_BOOTLOADER_GESTURE
@@ -208,13 +211,19 @@ bool digitizer_task_user(digitizer_t *state) {
         }
     #endif
 
-    // TODO: implement more sophisticated state switching, maybe using 5 finger gestures?
-    //       5 finger tap average position high = mouse middle = normal low = tablet
-    //       if >5 finger support comes, then 6 fingers using the position of the 6th to select state?
-    if (contact_count == 4 && contact_count != last_contact_count) {
-        if (mode == MODE_NORMAL) {
+    if (contact_count > 5 && contact_count > last_contact_count) {
+        // zero out mouse buttons to hopefully avoid issues
+        report_mouse_t mouse_report = {
+            .buttons = 0
+        };
+        pointing_device_set_report(mouse_report);
+        pointing_device_send();
+
+        if (contact_count == 6) {
+            change_mode(MODE_NORMAL, mode_no_data);
+        } else if (contact_count == 7) {
             change_mode(MODE_MOUSE, mode_mouse_default);
-        } else if (mode == MODE_MOUSE) {
+        } else if (contact_count == 8) {
             #ifdef DIGITIZER_HAS_STYLUS
                 mode_data_t data = mode_tablet_default;
 
@@ -225,12 +234,13 @@ bool digitizer_task_user(digitizer_t *state) {
 
 
                 change_mode(MODE_TABLET, data);
-            #else
-                change_mode(MODE_NORMAL, mode_no_data);
             #endif
-        } else {
-            change_mode(MODE_NORMAL, mode_no_data);
         }
+        #ifndef MAXTOUCH_BOOTLOADER_GESTURE
+        else if (contact_count == 10) {
+            reset_keyboard();
+        }
+        #endif
     }
 
     switch (mode) {
@@ -437,9 +447,4 @@ bool digitizer_task_user(digitizer_t *state) {
 
     last_contact_count = contact_count;
     return true;
-}
-
-void keyboard_post_init_user(void) {
-    debug_enable=true;
-    debug_mouse=true;
 }
