@@ -200,17 +200,6 @@ bool digitizer_task_user(digitizer_t *state) {
     //if (contact_count != last_contact_count)
     //    uprintf("Contact count: %d / %d\n", contact_count, DIGITIZER_CONTACT_COUNT);
 
-    // bottom left corner keyboard reset if 5-finger gesture is disabled
-    // temporary while I mess with stuff and figure out what I want
-    #ifndef MAXTOUCH_BOOTLOADER_GESTURE
-        if (contact_count == 1) {
-            digitizer_contact_t contact = state->contacts[0];
-            if (contact.x < 10 && contact.y > 9800) {
-                reset_keyboard();
-            }
-        }
-    #endif
-
     if (contact_count > 5 && contact_count > last_contact_count) {
         // zero out mouse buttons to hopefully avoid issues
         report_mouse_t mouse_report = {
