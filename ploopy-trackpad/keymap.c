@@ -224,12 +224,11 @@ bool digitizer_task_user(digitizer_t *state) {
 
                 change_mode(MODE_TABLET, data);
             #endif
+        } else if (contact_count == 10) {
+            #ifndef MAXTOUCH_BOOTLOADER_GESTURE
+                reset_keyboard();
+            #endif
         }
-        #ifndef MAXTOUCH_BOOTLOADER_GESTURE
-        else if (contact_count == 10) {
-            reset_keyboard();
-        }
-        #endif
     }
 
     switch (mode) {
