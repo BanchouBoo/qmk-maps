@@ -20,7 +20,13 @@ Eventually I'd like to rework the acceleration code.
 
 [Link](https://ploopy.co/trackpad/)
 
-My most extensively modified keymap. There are three modes set up currently: normal, mouse, and tablet. Different modes have various settings you can change by passing data when calling `change_mode`. Switching between modes is done by pressing down 4 fingers at once, but that will probably be changed in the future.
+My most extensively modified keymap. There are three modes set up currently: normal, mouse, and tablet. Different modes have various settings you can change by passing data when calling `change_mode`.
+
+You can switch modes by pressing down a specific number of fingers:
+- 6: Normal mode
+- 7: Mouse mode
+- 8: Tablet mode (if `DIGITIZER_HAS_STYLUS` is defined)
+- 10: Puts the trackpad into the bootloader
 
 - Normal: Standard out-of-the-box trackpad behavior, nothing special.
 - Mouse: Emulates mouse input, first contact acts as the pointer, a contact to the left <4000 trackpad units is a left click, a contact to the left >=4000 trackpad units is a mouse side button, a contact to the right <4000 trackpad units is a right click, a contact >=4000 units to the right is a middle click. Currently also has some hardcoded acceleration.
