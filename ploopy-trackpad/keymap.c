@@ -209,8 +209,6 @@ report_mouse_t pointing_device_task_user(report_mouse_t report) {
 bool digitizer_task_user(digitizer_t *state) {
     uint8_t contact_count = get_contact_count(state);
 
-    //if (contact_count != last_contact_count)
-    //    uprintf("Contact count: %d / %d\n", contact_count, DIGITIZER_CONTACT_COUNT);
     // TODO: disabled for now, need to tweak more
     //if (contact_count == 1 && last_contact_count == 0) {
     //    touch_timer = timer_read();
