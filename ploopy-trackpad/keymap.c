@@ -42,6 +42,7 @@ typedef enum {
     MODE_MOUSE,
     MODE_TABLET,
     MODE_GESTURE,
+    MODE_CHANGE,
 } mode_t;
 
 typedef enum {
@@ -86,6 +87,10 @@ typedef union {
         uint16_t min[2];
         uint16_t max[2];
     } tablet;
+
+    struct mode_change_t {
+        uint8_t max_contacts;
+    } change;
 } mode_data_t;
 const mode_data_t mode_no_data;
 const mode_data_t mode_tablet_default = { .tablet = { .mode = MODE_RECTANGLE,
@@ -98,6 +103,7 @@ const mode_data_t mode_tablet_default = { .tablet = { .mode = MODE_RECTANGLE,
 const mode_data_t mode_mouse_default = { .mouse = { .pointer_index = INVALID_INDEX,
                                                     .button_index = { INVALID_INDEX, INVALID_INDEX, INVALID_INDEX, INVALID_INDEX },
                                                     .sensitivity = 0.115 } };
+const mode_data_t mode_change_default = { .change = { .max_contacts = 0 } };
 
 mode_t mode = MODE_NORMAL;
 mode_data_t mode_data;
@@ -218,35 +224,8 @@ bool digitizer_task_user(digitizer_t *state) {
     //    change_mode(MODE_GESTURE, mode_no_data);
     //}
 
-    if (contact_count > 5 && contact_count > last_contact_count) {
-        // zero out mouse buttons to hopefully avoid issues
-        report_mouse_t mouse_report = {
-            .buttons = 0
-        };
-        pointing_device_set_report(mouse_report);
-        pointing_device_send();
-
-        if (contact_count == 6) {
-            change_mode(MODE_NORMAL, mode_no_data);
-        } else if (contact_count == 7) {
-            change_mode(MODE_MOUSE, mode_mouse_default);
-        } else if (contact_count == 8) {
-            #ifdef DIGITIZER_HAS_STYLUS
-                mode_data_t data = mode_tablet_default;
-
-                data.tablet.shiftable = true;
-
-                data.tablet.region[0] = WIDTH * 0.367;
-                data.tablet.region[1] = HEIGHT * 0.386;
-
-
-                change_mode(MODE_TABLET, data);
-            #endif
-        } else if (contact_count == 10) {
-            #ifndef MAXTOUCH_BOOTLOADER_GESTURE
-                reset_keyboard();
-            #endif
-        }
+    if (mode != MODE_CHANGE && contact_count > 5) {
+        change_mode(MODE_CHANGE, mode_change_default);
     }
 
     switch (mode) {
@@ -452,6 +431,44 @@ bool digitizer_task_user(digitizer_t *state) {
                     contact->tip = false;
                 });
             }
+        } break;
+        case MODE_CHANGE: {
+            if (contact_count > mode_data.change.max_contacts) {
+                mode_data.change.max_contacts = contact_count;
+            } else if (contact_count == 0) {
+                // zero out mouse buttons to avoid issues
+                report_mouse_t mouse_report = {
+                    .buttons = 0
+                };
+                pointing_device_set_report(mouse_report);
+                pointing_device_send();
+
+                if (mode_data.change.max_contacts == 6) {
+                    change_mode(MODE_NORMAL, mode_no_data);
+                } else if (mode_data.change.max_contacts == 7) {
+                    change_mode(MODE_MOUSE, mode_mouse_default);
+                } else if (mode_data.change.max_contacts == 8) {
+                    #ifdef DIGITIZER_HAS_STYLUS
+                        mode_data_t data = mode_tablet_default;
+
+                        data.tablet.shiftable = true;
+
+                        data.tablet.region[0] = WIDTH * 0.367;
+                        data.tablet.region[1] = HEIGHT * 0.386;
+
+
+                        change_mode(MODE_TABLET, data);
+                    #endif
+                } else if (mode_data.change.max_contacts == 10) {
+                    reset_keyboard();
+                } else {
+                    change_mode(last_mode, last_mode_data);
+                }
+            }
+
+            FOR_CONTACTS(state, {
+                contact->tip = false;
+            });
         } break;
         default: break;
     }
