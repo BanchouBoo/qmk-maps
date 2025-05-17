@@ -41,6 +41,7 @@ typedef enum {
     MODE_NORMAL,
     MODE_MOUSE,
     MODE_TABLET,
+    MODE_GESTURE,
 } mode_t;
 
 typedef enum {
@@ -100,9 +101,14 @@ const mode_data_t mode_mouse_default = { .mouse = { .pointer_index = INVALID_IND
 
 mode_t mode = MODE_NORMAL;
 mode_data_t mode_data;
+mode_t last_mode = MODE_NORMAL;
+mode_data_t last_mode_data;
 uint8_t last_contact_count = 0;
+uint16_t touch_timer;
 
 void change_mode(mode_t new_mode, mode_data_t data) {
+    last_mode = mode;
+    last_mode_data = mode_data;
     mode = new_mode;
     mode_data = data;
     switch (mode) {
@@ -199,6 +205,18 @@ bool digitizer_task_user(digitizer_t *state) {
 
     //if (contact_count != last_contact_count)
     //    uprintf("Contact count: %d / %d\n", contact_count, DIGITIZER_CONTACT_COUNT);
+    // TODO: disabled for now, need to tweak more
+    //if (contact_count == 1 && last_contact_count == 0) {
+    //    touch_timer = timer_read();
+    //} else if (contact_count > 1 && last_contact_count == 1) {
+    //    uint16_t time = timer_elapsed(touch_timer);
+    //    uprintf("Time: %dms\n", time);
+    //    if (time <= 25) {
+    //        change_mode(MODE_GESTURE, mode_no_data);
+    //    }
+    //} else if (contact_count > 1 && last_contact_count == 0) {
+    //    change_mode(MODE_GESTURE, mode_no_data);
+    //}
 
     if (contact_count > 5 && contact_count > last_contact_count) {
         // zero out mouse buttons to hopefully avoid issues
@@ -232,6 +250,11 @@ bool digitizer_task_user(digitizer_t *state) {
     }
 
     switch (mode) {
+        case MODE_GESTURE: {
+            if (contact_count == 0) {
+                change_mode(last_mode, last_mode_data);
+            }
+        } break;
         // TODO: add a way to scroll
         case MODE_MOUSE: {
             if (valid_index(mode_data.mouse.pointer_index)) {
