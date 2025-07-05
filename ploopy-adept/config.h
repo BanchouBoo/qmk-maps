@@ -4,12 +4,15 @@
 #define PLOOPY_DPI_OPTIONS { 2000 }
 #define PLOOPY_DPI_DEFAULT 0
 
-// TODO: look into pointing modes for drag scroll (and maybe accel??)
-// #define PLOOPY_DRAGSCROLL_DPI 100
-#define PLOOPY_DRAGSCROLL_DIVISOR 64.0
+#define PLOOPY_DRAGSCROLL_DIVISOR 1.0
 #define PLOOPY_DRAGSCROLL_DIVISOR_H PLOOPY_DRAGSCROLL_DIVISOR
 #define PLOOPY_DRAGSCROLL_DIVISOR_V PLOOPY_DRAGSCROLL_DIVISOR
 #define PLOOPY_DRAGSCROLL_MOMENTARY
 #define PLOOPY_DRAGSCROLL_INVERT
 
 #define MOUSE_EXTENDED_REPORT
+
+// requires libinput PR to function well on linux for now https://gitlab.freedesktop.org/libinput/libinput/-/merge_requests/1258
+#define POINTING_DEVICE_HIRES_SCROLL_ENABLE
+#define POINTING_DEVICE_HIRES_SCROLL_MULTIPLIER 120
+#define POINTING_DEVICE_HIRES_SCROLL_EXPONENT 0
