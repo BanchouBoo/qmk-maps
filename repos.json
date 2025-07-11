@@ -7,11 +7,6 @@
         "folder": "qmk_steno",
         "url": "https://github.com/openstenoproject/qmk.git"
     },
-    "hires": {
-        "folder": "qmk_firmware_hires_pr_24347",
-        "url": "https://github.com/morgannewellsun/qmk_firmware.git",
-        "checkout": "develop-hires-scrolling"
-    },
     "trackpad": {
         "folder": "qmk_firmware-trackpad",
         "url": "https://github.com/george-norton/qmk_firmware-trackpad.git",
