@@ -20,11 +20,6 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {{{ KC_NO }}};
 #define FINGER_RING  1
 #define FINGER_PINKY 2
 
-#define ACCEL_EXPONENT 2.0
-#define ACCEL_FACTOR (1.0 / 12.0)
-#define ACCEL_OFFSET 0.0
-#define ACCEL_CAP 200.0
-
 #define CLAMP(value, min, max) (MIN(max, MAX(value, min)))
 
 // (void)contact to suppress unused variable warnings
@@ -263,11 +258,10 @@ bool digitizer_task_user(digitizer_t *state) {
 
                 // TODO: refactor acceleration settings so it can easily be seperately configured or disabled at compile time
                 //       also reimplement more acceleration functions from rawaccel (see https://github.com/Kuuuube/rawaccel_convert)
-                float speed = vec2_length(move_delta);
+                float magnitude = vec2_length(move_delta);
                 // TODO: why does accel need to be roughtly 1/10th to feel the same? Should same scaling apply? Or scaling from libinput points?
-                float sens = accel_classic_sensitivity(speed, 0.0, 0.03, 2.0);
-                speed *= sens;
-                move_delta = vec2_mul(vec2_normalized(move_delta), speed);
+                magnitude = accel_classic(magnitude, 0.0, 0.03, 2.0);
+                move_delta = vec2_mul(vec2_normalized(move_delta), magnitude);
 
                 move_delta = vec2_add(move_delta, mode_data.mouse.accumulated);
 
