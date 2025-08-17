@@ -12,7 +12,6 @@
 
 #define MOUSE_EXTENDED_REPORT
 
-// requires libinput PR to function well on linux for now https://gitlab.freedesktop.org/libinput/libinput/-/merge_requests/1258
 #define POINTING_DEVICE_HIRES_SCROLL_ENABLE
 #define POINTING_DEVICE_HIRES_SCROLL_MULTIPLIER 120
 #define POINTING_DEVICE_HIRES_SCROLL_EXPONENT 0
