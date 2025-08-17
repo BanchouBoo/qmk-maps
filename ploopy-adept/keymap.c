@@ -8,12 +8,6 @@
 
 #define SENSITIVITY 0.2 // TARGET_DPI / ACTUAL_DPI = 400 / 2000
 
-float x_offset = 1.0;
-float y_offset = 1.0;
-float exponent = 2.0;
-
-float acceleration = 1.0 / 8.0;
-
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [0] = LAYOUT( KC_BTN4, KC_BTN5, DRAG_SCROLL, KC_BTN2, KC_BTN1, KC_BTN3 )
 };
