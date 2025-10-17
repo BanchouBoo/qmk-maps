@@ -79,7 +79,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
   [_STENO] = LAYOUT(
 //  ┌────────┬────────┬────────┬────────┬────────┬────────┐                          ┌────────┬────────┬────────┬────────┬────────┬────────┐
-     STN_N1,  STN_N2,  STN_N3,  STN_N4,  STN_N5,  STN_N6,                             STN_N7,  STN_N8,  STN_N9,  XXXXXXX, XXXXXXX, LAYER,
+     XXXXXXX, STN_N1,  STN_N2,  STN_N3,  STN_N4,  STN_N5,                             STN_N6,  STN_N7,  STN_N8,  STN_N9,  XXXXXXX, LAYER,
 //  ├────────┼────────┼────────┼────────┼────────┼────────┤                          ├────────┼────────┼────────┼────────┼────────┼────────┤
      XXXXXXX, STN_S1,  STN_TL,  STN_PL,  STN_HL,  STN_ST1,                            STN_ST3, STN_FR,  STN_PR,  STN_LR,  STN_TR,  STN_DR,
 //  ├────────┼────────┼────────┼────────┼────────┼────────┤                          ├────────┼────────┼────────┼────────┼────────┼────────┤
