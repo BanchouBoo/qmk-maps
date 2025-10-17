@@ -138,7 +138,7 @@ void steno_set_chord_key(uint8_t key, bool state) {
     switch (eeconfig_read_steno_mode()) {
         #ifdef STENO_ENABLE_BOLT
             case STENO_MODE_BOLT: {
-                uint8_t boltcode = pgm_read_byte(boltmap + key);
+                const uint8_t boltcode = pgm_read_byte(boltmap + key);
                 if (state) {
                     chord[TXB_GET_GROUP(boltcode)] |= boltcode;
                 } else {
@@ -149,7 +149,7 @@ void steno_set_chord_key(uint8_t key, bool state) {
         case STENO_MODE_GEMINI: {
             const int group_idx = key / 7;
             const int intra_group_idx = key - group_idx * 7;
-            uint8_t bit = 1 << (6 - intra_group_idx);
+            const uint8_t bit = 1 << (6 - intra_group_idx);
             if (state) {
                 chord[group_idx] |= bit;
             } else {
