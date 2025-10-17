@@ -1,5 +1,5 @@
 #include QMK_KEYBOARD_H
-#include "keymap_steno.h"
+#include "virtser.h"
 
 enum layers {
     _DVORAK,
@@ -122,6 +122,79 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     return true;
 }
 
-void matrix_init_user() {
-    steno_set_mode(STENO_MODE_GEMINI);
+// JANKY STENO_1UP REIMPLEMENTATION
+#ifdef STENO_1UP
+
+#ifdef STENO_ENABLE_BOLT
+    #define TXB_GRPMASK 0b11000000
+    #define TXB_GET_GROUP(code) ((code & TXB_GRPMASK) >> 6)
+    const uint8_t boltmap[64] PROGMEM = {TXB_NUL, TXB_NUM, TXB_NUM, TXB_NUM, TXB_NUM, TXB_NUM, TXB_NUM, TXB_S_L, TXB_S_L, TXB_T_L, TXB_K_L, TXB_P_L, TXB_W_L, TXB_H_L, TXB_R_L, TXB_A_L, TXB_O_L, TXB_STR, TXB_STR, TXB_NUL, TXB_NUL, TXB_NUL, TXB_STR, TXB_STR, TXB_E_R, TXB_U_R, TXB_F_R, TXB_R_R, TXB_P_R, TXB_B_R, TXB_L_R, TXB_G_R, TXB_T_R, TXB_S_R, TXB_D_R, TXB_NUM, TXB_NUM, TXB_NUM, TXB_NUM, TXB_NUM, TXB_NUM, TXB_Z_R};
+#endif
+
+bool steno_ready_to_send = false;
+uint8_t chord[MAX_STROKE_SIZE] = {0};
+
+void steno_set_chord_key(uint8_t key, bool state) {
+    switch (eeconfig_read_steno_mode()) {
+        #ifdef STENO_ENABLE_BOLT
+            case STENO_MODE_BOLT: {
+                uint8_t boltcode = pgm_read_byte(boltmap + key);
+                if (state) {
+                    chord[TXB_GET_GROUP(boltcode)] |= boltcode;
+                } else {
+                    chord[TXB_GET_GROUP(boltcode)] &= ~boltcode;
+                }
+            } break;
+        #endif
+        case STENO_MODE_GEMINI: {
+            const int group_idx = key / 7;
+            const int intra_group_idx = key - group_idx * 7;
+            uint8_t bit = 1 << (6 - intra_group_idx);
+            if (state) {
+                chord[group_idx] |= bit;
+            } else {
+                chord[group_idx] &= ~bit;
+            }
+        } break;
+    }
 }
+
+void steno_send_chord(uint8_t chord[MAX_STROKE_SIZE]) {
+    switch (eeconfig_read_steno_mode()) {
+        #ifdef STENO_ENABLE_BOLT
+            case STENO_MODE_BOLT: {
+                for (uint8_t i = 0; i < BOLT_STROKE_SIZE; ++i) {
+                    if (chord[i]) {
+                        virtser_send(chord[i]);
+                    }
+                }
+                virtser_send(0); // terminating byte
+            } break;
+        #endif
+        case STENO_MODE_GEMINI: {
+            chord[0] |= 0x80; // start of packet
+            for (uint8_t i = 0; i < GEMINI_STROKE_SIZE; ++i) {
+                virtser_send(chord[i]);
+            }
+        } break;
+    }
+}
+
+bool send_steno_chord_user(steno_mode_t mode, uint8_t chord[MAX_STROKE_SIZE]) {
+    return false;
+}
+
+bool process_steno_user(uint16_t keycode, keyrecord_t *record) {
+    if (record->event.pressed) {
+        steno_ready_to_send = true;
+    } else {
+        if (steno_ready_to_send) {
+            steno_send_chord(chord);
+        }
+        steno_ready_to_send = false;
+    }
+    steno_set_chord_key(keycode - QK_STENO, record->event.pressed);
+    return true;
+}
+
+#endif
