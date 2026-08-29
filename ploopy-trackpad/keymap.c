@@ -13,6 +13,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {{{ KC_NO }}};
 #define CENTER_X (WIDTH / 2)
 #define CENTER_Y (HEIGHT / 2)
 #define INVALID_INDEX DIGITIZER_CONTACT_COUNT
+#define TRACKBALL_VELOCITY_SAMPLES 2
 
 // TODO: move to mode data for runtime confiuration
 #define FINGER_INDEX 0
@@ -32,11 +33,20 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {{{ KC_NO }}};
 
 #define FOR_ACTIVE_CONTACTS(state, ...) FOR_CONTACTS(state, if (contact->tip) { __VA_ARGS__ })
 
+#define FOR_VELOCITY_QUEUE(queue, ...) \
+    for (uint8_t count = 0; count < queue.count; count++) { \
+        uint8_t i = (queue.head + count) % TRACKBALL_VELOCITY_SAMPLES; \
+        vec2_t sample = queue.samples[i]; \
+        (void)sample; \
+        do __VA_ARGS__ while (0); \
+    }
+
 typedef enum {
     MODE_NORMAL,
     MODE_MOUSE,
     MODE_TABLET,
     MODE_GESTURE,
+    MODE_INERTIA,
     MODE_CHANGE,
 } mode_t;
 
@@ -44,6 +54,12 @@ typedef enum {
     MODE_RECTANGLE,
     MODE_ELLIPSE,
 } tablet_mode_t;
+
+typedef struct {
+    vec2_t samples[TRACKBALL_VELOCITY_SAMPLES];
+    uint8_t head;
+    uint8_t count;
+} velocity_queue_t;
 
 typedef union {
     struct mode_mouse_t {
@@ -62,7 +78,11 @@ typedef union {
         vec2_t accumulated;
 
         // for trackball emulation, eventually
-        // vec2_t velocity;
+        float deceleration;
+        vec2_t velocity;
+        vec2_t trackball_velocity;
+        float trackball_speed_threshold;
+        velocity_queue_t velocity_samples;
     } mouse;
 
     struct mode_tablet_t {
@@ -97,19 +117,29 @@ const mode_data_t mode_tablet_default = { .tablet = { .mode = MODE_RECTANGLE,
                                                       .deadzone_y = { 0, 0 } } };
 const mode_data_t mode_mouse_default = { .mouse = { .pointer_index = INVALID_INDEX,
                                                     .button_index = { INVALID_INDEX, INVALID_INDEX, INVALID_INDEX, INVALID_INDEX },
-                                                    .sensitivity = 0.115 } };
+                                                    .sensitivity = 0.115,
+                                                    .trackball_speed_threshold = 200.0,
+                                                    .deceleration = 2.0 } };
 const mode_data_t mode_change_default = { .change = { .max_contacts = 0 } };
 
-mode_t mode = MODE_NORMAL;
-mode_data_t mode_data;
+mode_t mode = MODE_MOUSE;
+mode_data_t mode_data = mode_mouse_default;
 mode_t last_mode = MODE_NORMAL;
 mode_data_t last_mode_data;
 uint8_t last_contact_count = 0;
 uint16_t touch_timer;
+uint16_t frame_timer_digitizer = 0;
+uint16_t frame_timer_pointer = 0;
 
 void change_mode(mode_t new_mode, mode_data_t data) {
     last_mode = mode;
     last_mode_data = mode_data;
+    if (last_mode == MODE_MOUSE) {
+        last_mode_data.mouse.pointer_index = INVALID_INDEX;
+        for (uint8_t i = 0; i < 4; i++) {
+            last_mode_data.mouse.button_index[i] = INVALID_INDEX;
+        }
+    }
     mode = new_mode;
     mode_data = data;
     switch (mode) {
@@ -131,6 +161,17 @@ uint8_t get_contact_count(digitizer_t *state) {
         contact_count += 1;
     });
     return contact_count;
+}
+
+void velocity_queue_push(velocity_queue_t *queue, vec2_t sample) {
+    if (queue->count < TRACKBALL_VELOCITY_SAMPLES) {
+        size_t tail = (queue->head + queue->count) % TRACKBALL_VELOCITY_SAMPLES;
+        queue->samples[tail] = sample;
+        queue->count += 1;
+    } else {
+        queue->samples[queue->head] = sample;
+        queue->head = (queue->head + 1) % TRACKBALL_VELOCITY_SAMPLES;
+    }
 }
 
 vec2_t get_average_position(digitizer_t *state) {
@@ -186,14 +227,25 @@ float accel_classic(float x, float offset, float acceleration, float exponent) {
 }
 
 report_mouse_t pointing_device_task_user(report_mouse_t report) {
+    float frame_delta = (float)timer_elapsed(frame_timer_pointer) / 1000.0;
+    frame_timer_pointer = timer_read();
+
     // TODO: better unify these to avoid the duplicate code, maybe make mouse buttons a global instead of mode-specific
     if (mode == MODE_MOUSE) {
         // buttons get reset every report, so we have to store them to set them every time
         report.buttons = mode_data.mouse.buttons;
 
-        if (!valid_index(mode_data.mouse.pointer_index)) {
-            // TODO: do inertia stuff here
-            //       maybe make inertia a separate mode
+        if (!valid_index(mode_data.mouse.pointer_index) && vec2_length(mode_data.mouse.trackball_velocity) > 0.0 && false) {
+            mode_data.mouse.trackball_velocity = vec2_mul(mode_data.mouse.trackball_velocity, exp(-mode_data.mouse.deceleration * frame_delta));
+
+            mode_data.mouse.accumulated = vec2_add(mode_data.mouse.accumulated, vec2_mul(mode_data.mouse.trackball_velocity, frame_delta));
+
+            vec2_t move_delta = vec2_trunc(mode_data.mouse.accumulated);
+            report.x = move_delta.x;
+            report.y = move_delta.y;
+            mode_data.mouse.accumulated = vec2_sub(mode_data.mouse.accumulated, move_delta);
+
+            //uprintf("TSpeed: %f\n", vec2_length(mode_data.mouse.trackball_velocity));
         }
     } else if (mode == MODE_TABLET) {
         report.buttons = mode_data.tablet.buttons;
@@ -204,18 +256,24 @@ report_mouse_t pointing_device_task_user(report_mouse_t report) {
 bool digitizer_task_user(digitizer_t *state) {
     uint8_t contact_count = get_contact_count(state);
 
+    float frame_delta = (float)timer_elapsed(frame_timer_digitizer) / 1000.0;
+    frame_timer_digitizer = timer_read();
+
     // TODO: disabled for now, need to tweak more
-    //if (contact_count == 1 && last_contact_count == 0) {
-    //    touch_timer = timer_read();
-    //} else if (contact_count > 1 && last_contact_count == 1) {
-    //    uint16_t time = timer_elapsed(touch_timer);
-    //    uprintf("Time: %dms\n", time);
-    //    if (time <= 25) {
-    //        change_mode(MODE_GESTURE, mode_no_data);
-    //    }
-    //} else if (contact_count > 1 && last_contact_count == 0) {
-    //    change_mode(MODE_GESTURE, mode_no_data);
-    //}
+    if (mode != MODE_NORMAL) {
+        if (contact_count == 1 && last_contact_count == 0) {
+            touch_timer = timer_read();
+        } else if (contact_count > 1 && last_contact_count == 1) {
+            uint16_t time = timer_elapsed(touch_timer);
+            uprintf("Time: %dms\n", time);
+            if (time <= 30) {
+                change_mode(MODE_GESTURE, mode_no_data);
+            }
+        } else if (contact_count > 1 && last_contact_count == 0) {
+            // if two contacts happen at exactly the same tick
+            change_mode(MODE_GESTURE, mode_no_data);
+        }
+    }
 
     if (mode != MODE_CHANGE && contact_count > 5) {
         change_mode(MODE_CHANGE, mode_change_default);
@@ -223,7 +281,7 @@ bool digitizer_task_user(digitizer_t *state) {
 
     switch (mode) {
         case MODE_GESTURE: {
-            if (contact_count == 0) {
+            if (contact_count <= 1) {
                 change_mode(last_mode, last_mode_data);
             }
         } break;
@@ -247,6 +305,11 @@ bool digitizer_task_user(digitizer_t *state) {
 
             vec2_t move_delta = vec2_zero;
             if (valid_index(mode_data.mouse.pointer_index)) {
+                if (last_contact_count == 0) {
+                    mode_data.mouse.trackball_velocity = vec2(0.0, 0.0);
+                    mode_data.mouse.accumulated = vec2(0.0, 0.0);
+                    mode_data.mouse.velocity_samples = (velocity_queue_t){ .head = 0, .count = 0 };
+                }
                 digitizer_contact_t *pointer_contact = &(state->contacts[mode_data.mouse.pointer_index]);
 
                 vec2_t last_pointer_position = mode_data.mouse.pointer_position;
@@ -263,7 +326,27 @@ bool digitizer_task_user(digitizer_t *state) {
                 magnitude = accel_classic(magnitude, 0.0, 0.03, 2.0);
                 move_delta = vec2_mul(vec2_normalized(move_delta), magnitude);
 
-                move_delta = vec2_add(move_delta, mode_data.mouse.accumulated);
+                if (vec2_length(move_delta) > 0.0) {
+                    move_delta = vec2_add(move_delta, mode_data.mouse.accumulated);
+                } else {
+                    mode_data.mouse.accumulated = vec2(0.0, 0.0);
+                }
+                //uprintf("(%f, %f)\n", move_delta.x, move_delta.y);
+
+                velocity_queue_push(&mode_data.mouse.velocity_samples, vec2_div(move_delta, frame_delta));
+                vec2_t combined_velocities = vec2(0.0, 0.0);
+                FOR_VELOCITY_QUEUE(mode_data.mouse.velocity_samples, {
+                    //uprintf("(%f, %f)\n", sample.x, sample.y);
+                    combined_velocities = vec2_add(combined_velocities, sample);
+                });
+                //uprintf("\n");
+                //mode_data.mouse.trackball_velocity = vec2_div(combined_velocities, mode_data.mouse.velocity_samples.count);
+
+                mode_data.mouse.trackball_velocity = vec2_div(vec2_add(mode_data.mouse.trackball_velocity, vec2_div(move_delta, frame_delta)), 2);
+                if (vec2_length(mode_data.mouse.trackball_velocity) < mode_data.mouse.trackball_speed_threshold) {
+                    //mode_data.mouse.trackball_velocity = vec2(0.0, 0.0);
+                }
+                //uprintf("HSpeed: %f\n", vec2_length(mode_data.mouse.trackball_velocity));
 
                 FOR_ACTIVE_CONTACTS(state, {
                     if (contact != pointer_contact) {
@@ -440,6 +523,16 @@ bool digitizer_task_user(digitizer_t *state) {
                 } else if (mode_data.change.max_contacts == 7) {
                     change_mode(MODE_MOUSE, mode_mouse_default);
                 } else if (mode_data.change.max_contacts == 8) {
+                    #ifdef DIGITIZER_HAS_STYLUS
+                        mode_data_t data = mode_tablet_default;
+
+                        data.tablet.region[0] = WIDTH * 0.7;
+                        data.tablet.region[1] = HEIGHT * 0.7;
+
+
+                        change_mode(MODE_TABLET, data);
+                    #endif
+                } else if (mode_data.change.max_contacts == 9) {
                     #ifdef DIGITIZER_HAS_STYLUS
                         mode_data_t data = mode_tablet_default;
 
